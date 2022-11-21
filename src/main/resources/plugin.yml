@@ -1,0 +1,9 @@
+name: NPCPlugin
+version: '${project.version}'
+main: ch.asarix.NPCPlugin
+api-version: 1.15
+authors: [ Asarix ]
+description: Small npc utilities plugin
+commands:
+  npc:
+    description: spawn a pnj
