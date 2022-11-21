@@ -12,6 +12,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.lang.reflect.Field;
 
@@ -56,9 +60,32 @@ public class NPCListener implements Listener {
                         entityId.setAccessible(true);
                         int id = entityId.getInt(packet2);
 //                        System.out.println(id);
-                        for (NPC npc : NPCPlugin.NPCS)
-                            if (npc.getId() == id)
+                        for (NPC npc : NPCPlugin.NPCS) {
+                            if (npc.getNpcId() == id) {
+                                ItemStack holdItem = player.getInventory().getItemInMainHand();
+                                System.out.println("item");
+                                ItemMeta meta = holdItem.getItemMeta();
+                                if (meta != null) {
+                                    System.out.println("meta");
+                                    PersistentDataContainer container = meta.getPersistentDataContainer();
+                                    if (container.has(NPCPlugin.key, PersistentDataType.STRING)) {
+                                        System.out.println("key");
+                                        String data = container.get(NPCPlugin.key, PersistentDataType.STRING);
+                                        if (data != null) {
+                                            System.out.println("data");
+                                            if (data.equals("remover")) {
+                                                System.out.println("remover");
+                                                npc.remove();
+                                                super.channelRead(ctx, packet);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
                                 npc.onInteract(player);
+                                break;
+                            }
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

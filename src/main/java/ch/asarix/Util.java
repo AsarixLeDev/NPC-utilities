@@ -36,6 +36,10 @@ public class Util {
             ObjectNode node = JsonNodeFactory.instance.objectNode();
             new ObjectMapper().writeValue(dataFile, node);
         }
+        File npcFile = new File(dataFolder, "npcs.yml");
+        if (!npcFile.exists()) {
+            npcFile.createNewFile();
+        }
     }
 
     public static String userNameFromUUID(UUID uuid) {

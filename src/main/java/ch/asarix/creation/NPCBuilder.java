@@ -14,6 +14,9 @@ import net.minecraft.server.v1_15_R1.WorldServer;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.bukkit.*;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.v1_15_R1.CraftOfflinePlayer;
 import org.bukkit.craftbukkit.v1_15_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_15_R1.CraftWorld;
@@ -27,7 +30,8 @@ import java.net.URL;
 import java.util.*;
 
 public class NPCBuilder {
-    @Getter private String subTitle;
+    @Getter private final String id;
+    @Getter private String subTitle = null;
     @Getter private Location location;
     @Getter private boolean motionLess;
     @Getter private boolean hideName;
@@ -41,7 +45,8 @@ public class NPCBuilder {
     private boolean hadToReplaceName = false;
 
     public NPCBuilder() {
-        this.subTitle = "NPC";
+        this.id = generateID();
+        this.title = "NPC";
         this.motionLess = true;
         this.hideTab = true;
         this.hideName = false;
@@ -60,6 +65,41 @@ public class NPCBuilder {
             world = Bukkit.getWorlds().get(0);
         }
         this.location = new Location(world, 0, 0, 0);
+    }
+
+    public NPCBuilder(String id) {
+        File file = new File(NPCPlugin.getInstance().getDataFolder(), "npcs.yml");
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        ConfigurationSection section = config.getConfigurationSection(id);
+        this.id = id;
+        this.title = section.getString("title");
+        this.subTitle = section.getString("subTitle");
+        this.motionLess = section.getBoolean("motionLess");
+        this.hideTab = section.getBoolean("hideTab");
+        this.hideName = section.getBoolean("hideName");
+        double x = section.getDouble("location.x");
+        double y = section.getDouble("location.y");
+        double z = section.getDouble("location.z");
+        float yaw = (float) section.getDouble("location.yaw");
+        float pitch = (float) section.getDouble("location.pitch");
+        String worldName = section.getString("location.worldName");
+        this.location = new Location(Bukkit.getWorld(worldName), x, y, z, yaw, pitch);
+        String skinSignature = section.getString("skin.signature");
+        String skinTexture = section.getString("skin.value");
+        this.skin = new Skin(skinTexture, skinSignature);
+        this.dialogues.addAll(section.getStringList("dialogues"));
+
+
+
+
+
+
+        System.out.println("Title " + this.title);
+        System.out.println("Title " + this.title);
+        System.out.println("Title " + this.title);
+        System.out.println("Title " + this.title);
+        System.out.println("Title " + this.title);
+        System.out.println("Title " + this.title);
     }
 
     /**
@@ -443,5 +483,39 @@ public class NPCBuilder {
         String value = textureProp.getValue();
         this.skin = new Skin(value, signature);
         return this;
+    }
+
+    private String generateID() {
+        final String LOWER = "abcdefghijklmnopqrstuvwxyz";
+        final String UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        final String DIGITS = "0123456789";
+        List<String> charCategories = List.of(LOWER, UPPER, DIGITS);
+
+        int length = 10;
+        String id;
+
+        do {
+            // Variables.
+            StringBuilder password = new StringBuilder(length);
+            Random random = new Random(System.nanoTime());
+
+            // Build the password.
+            for (int i = 0; i < length; i++) {
+                String charCategory = charCategories.get(random.nextInt(charCategories.size()));
+                int position = random.nextInt(charCategory.length());
+                password.append(charCategory.charAt(position));
+            }
+            id = new String(password);
+        }
+        while (this.idExists(id));
+
+        return id;
+    }
+
+    private boolean idExists(String id) {
+        for (NPC npc : NPCPlugin.NPCS)
+            if (npc.getNpcId().equals(id))
+                return true;
+        return false;
     }
 }
