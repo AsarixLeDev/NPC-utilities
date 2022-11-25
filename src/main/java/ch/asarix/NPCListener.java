@@ -61,7 +61,7 @@ public class NPCListener implements Listener {
                         int id = entityId.getInt(packet2);
 //                        System.out.println(id);
                         for (NPC npc : NPCPlugin.NPCS) {
-                            if (npc.getNpcId() == id) {
+                            if (npc.getId() == id) {
                                 ItemStack holdItem = player.getInventory().getItemInMainHand();
                                 System.out.println("item");
                                 ItemMeta meta = holdItem.getItemMeta();

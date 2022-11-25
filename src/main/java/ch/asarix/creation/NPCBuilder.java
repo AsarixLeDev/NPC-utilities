@@ -11,7 +11,6 @@ import com.mojang.authlib.properties.PropertyMap;
 import lombok.Getter;
 import net.minecraft.server.v1_15_R1.MinecraftServer;
 import net.minecraft.server.v1_15_R1.WorldServer;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
 import org.bukkit.*;
 import org.bukkit.configuration.ConfigurationSection;
@@ -30,23 +29,29 @@ import java.net.URL;
 import java.util.*;
 
 public class NPCBuilder {
-    @Getter private final String id;
-    @Getter private String subTitle = null;
-    @Getter private Location location;
-    @Getter private boolean motionLess;
-    @Getter private boolean hideName;
-    @Getter private boolean hideTab;
-    @Getter private Consumer<Player> onInteract = null;
-    @Getter private Skin skin = null;
-    @Getter private String title = null;
-
+    @Getter
+    private final String id;
     @Getter
     private final List<String> dialogues = Lists.newArrayList();
-    private boolean hadToReplaceName = false;
+    @Getter
+    private final List<String> holograms = Lists.newArrayList();
+    @Getter
+    private Location location;
+    @Getter
+    private boolean motionLess;
+    @Getter
+    private boolean hideName;
+    @Getter
+    private boolean hideTab;
+    @Getter
+    private Consumer<Player> onInteract = null;
+    @Getter
+    private Skin skin = null;
+    @Getter
+    private String entityName = null;
 
     public NPCBuilder() {
         this.id = generateID();
-        this.title = "NPC";
         this.motionLess = true;
         this.hideTab = true;
         this.hideName = false;
@@ -72,8 +77,7 @@ public class NPCBuilder {
         FileConfiguration config = YamlConfiguration.loadConfiguration(file);
         ConfigurationSection section = config.getConfigurationSection(id);
         this.id = id;
-        this.title = section.getString("title");
-        this.subTitle = section.getString("subTitle");
+        this.entityName = section.getString("entityName");
         this.motionLess = section.getBoolean("motionLess");
         this.hideTab = section.getBoolean("hideTab");
         this.hideName = section.getBoolean("hideName");
@@ -88,18 +92,6 @@ public class NPCBuilder {
         String skinTexture = section.getString("skin.value");
         this.skin = new Skin(skinTexture, skinSignature);
         this.dialogues.addAll(section.getStringList("dialogues"));
-
-
-
-
-
-
-        System.out.println("Title " + this.title);
-        System.out.println("Title " + this.title);
-        System.out.println("Title " + this.title);
-        System.out.println("Title " + this.title);
-        System.out.println("Title " + this.title);
-        System.out.println("Title " + this.title);
     }
 
     /**
@@ -110,27 +102,43 @@ public class NPCBuilder {
     public NPC build() {
         MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         WorldServer world = ((CraftWorld) this.location.getWorld()).getHandle();
-        GameProfile gameProfile = new GameProfile(UUID.randomUUID(), this.title);
-        if (this.hadToReplaceName || this.subTitle != null) this.hideName = true;
+        String name = this.entityName == null ? this.id : this.entityName;
+        GameProfile gameProfile = new GameProfile(UUID.randomUUID(), name);
+        if (this.entityName == null || !this.holograms.isEmpty()) this.hideName = true;
         return new NPC(server, world, gameProfile, this);
     }
 
-    /**
-     * Sets the title and the subtitle located on the top
-     * of the npc.
-     * <p>
-     * If you only want a title, just use {@link #setName(String)}
-     *
-     * @param title    Title
-     * @param subTitle Subtitle
-     * @return instance of the builder class for builder pattern
-     */
-    public NPCBuilder setTitles(String title, String subTitle) {
-        Validate.isTrue(title != null && !title.isBlank());
-        Validate.isTrue(subTitle != null && !subTitle.isBlank());
-        this.setName(title);
-        this.subTitle = subTitle;
-        this.hideName = true;
+    //    /**
+//     * Sets the title and the subtitle located on the top
+//     * of the npc.
+//     * <p>
+//     * If you only want a title, just use {@link #setName(String)}
+//     *
+//     * @param title    Title
+//     * @param subTitle Subtitle
+//     * @return instance of the builder class for builder pattern
+//     */
+//    public NPCBuilder setTitles(String title, String subTitle) {
+//        Validate.isTrue(title != null && !title.isBlank());
+//        Validate.isTrue(subTitle != null && !subTitle.isBlank());
+//        this.setName(title);
+//        this.subTitle = subTitle;
+//        this.hideName = true;
+//        return this;
+//    }
+    public NPCBuilder addHologram(String... holograms) {
+        this.holograms.addAll(List.of(holograms));
+        return this;
+    }
+
+    public NPCBuilder addHologram(int index, String... holograms) {
+        this.holograms.addAll(index, List.of(holograms));
+        return this;
+    }
+
+    public NPCBuilder setEntityName(String name) {
+        Validate.isTrue(ChatColor.stripColor(name).length() < 16);
+        this.entityName = name;
         return this;
     }
 
@@ -170,6 +178,9 @@ public class NPCBuilder {
     /**
      * Sets if the NPC should hide the name on top of
      * his head or not.
+     * <p>
+     * Note that if the holograms have any contents,
+     * the value will be true fore sure.
      *
      * @param flag Should the name be hidden ?
      * @return instance of the builder class for builder pattern
@@ -179,45 +190,45 @@ public class NPCBuilder {
         return this;
     }
 
-    /**
-     * Sets the name of the npc.
-     * <p>
-     * The name must be under 16 characters (the colours do not count).
-     * If it is blank (empty of made with spaces) It will be generated
-     * automatically with the pattern : NPC#(TotalNumberOfRegisteredNPCS)
-     * and be hidden.
-     *
-     * @param name Name
-     * @return instance of the builder class for builder pattern
-     */
-    public NPCBuilder setName(String name) {
-        Validate.notNull(name);
-        Validate.isTrue(ChatColor.stripColor(name).length() <= 16, "Name must be have maximum 16 characters !");
-        this.hadToReplaceName = name.isBlank();
-        if (this.hadToReplaceName) {
-            name = "NPC#" + (NPCPlugin.NPCS.size() + 1);
-        }
-        this.title = name;
-        return this;
-    }
-
-    /**
-     * Forces the name of the npc to be blank (made of spaces).
-     * if the length specified is negative it will be replaced
-     * with the max value, which is 16.
-     *
-     * @deprecated Why would you use that lol ? Note that a
-     * blank name cannot be hidden on the top of the npc.
-     * @param len number of spaces
-     * @return instance of the builder class for builder pattern
-     */
-    @Deprecated
-    public NPCBuilder forceBlankName(int len) {
-        if (len < 0) len = 16;
-        this.title = StringUtils.repeat(" ", len);
-        this.hadToReplaceName = false;
-        return this;
-    }
+//    /**
+//     * Sets the name of the npc.
+//     * <p>
+//     * The name must be under 16 characters (the colours do not count).
+//     * If it is blank (empty of made with spaces) It will be generated
+//     * automatically with the pattern : NPC#(TotalNumberOfRegisteredNPCS)
+//     * and be hidden.
+//     *
+//     * @param name Name
+//     * @return instance of the builder class for builder pattern
+//     */
+//    public NPCBuilder setName(String name) {
+//        Validate.notNull(name);
+//        Validate.isTrue(ChatColor.stripColor(name).length() <= 16, "Name must be have maximum 16 characters !");
+//        this.hadToReplaceName = name.isBlank();
+//        if (this.hadToReplaceName) {
+//            name = "NPC#" + (NPCPlugin.NPCS.size() + 1);
+//        }
+//        this.title = name;
+//        return this;
+//    }
+//
+//    /**
+//     * Forces the name of the npc to be blank (made of spaces).
+//     * if the length specified is negative it will be replaced
+//     * with the max value, which is 16.
+//     *
+//     * @deprecated Why would you use that lol ? Note that a
+//     * blank name cannot be hidden on the top of the npc.
+//     * @param len number of spaces
+//     * @return instance of the builder class for builder pattern
+//     */
+//    @Deprecated
+//    public NPCBuilder forceBlankName(int len) {
+//        if (len < 0) len = 16;
+//        this.title = StringUtils.repeat(" ", len);
+//        this.hadToReplaceName = false;
+//        return this;
+//    }
 
     /**
      * Sets the x component of the npc location.

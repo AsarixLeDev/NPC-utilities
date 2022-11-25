@@ -2,10 +2,12 @@ package ch.asarix.creation;
 
 import ch.asarix.NPCPlugin;
 import ch.asarix.Util;
+import com.google.common.collect.Lists;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import lombok.Getter;
 import net.minecraft.server.v1_15_R1.*;
+import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -13,7 +15,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.v1_15_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_15_R1.CraftWorld;
 import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Consumer;
@@ -29,15 +30,15 @@ import java.util.UUID;
 public class NPC extends EntityPlayer {
 
     private final List<String> dialogues;
+    private final List<ArmorStand> holograms;
     private final Skin skin;
     private final boolean motionLess;
     private final boolean hideTab;
     private final boolean hideName;
-    public BukkitTask task = null;
-    private ArmorStand titleStand = null;
-    private ArmorStand subTitleStand = null;
     private final Consumer<Player> onInteract;
-    @Getter private final String npcId;
+    @Getter
+    private final String npcId;
+    public BukkitTask task = null;
 
     public NPC(Location loc) {
         this(((CraftServer) Bukkit.getServer()).getServer(), ((CraftWorld) loc.getWorld()).getHandle(), loc);
@@ -68,19 +69,13 @@ public class NPC extends EntityPlayer {
         if (!this.motionLess) {
             task = Bukkit.getScheduler().runTaskTimer(NPCPlugin.getInstance(), this::behave, 0, 1);
         }
-        if (builder.getSubTitle() != null) {
-            loc = new Location(loc.getWorld(), loc.getX(), loc.getY() - 0.05, loc.getZ(), loc.getPitch(), loc.getYaw());
-            titleStand = (ArmorStand) loc.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
-            titleStand.setCustomName(builder.getTitle());
-            titleStand.setGravity(false);
-            titleStand.setVisible(false);
-            titleStand.setCustomNameVisible(true);
-            loc = new Location(loc.getWorld(), loc.getX(), loc.getY() - 0.25, loc.getZ(), loc.getPitch(), loc.getYaw());
-            subTitleStand = (ArmorStand) loc.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
-            subTitleStand.setCustomName(builder.getSubTitle());
-            subTitleStand.setGravity(false);
-            subTitleStand.setVisible(false);
-            subTitleStand.setCustomNameVisible(true);
+        this.holograms = Lists.newArrayList();
+        for (String hologram : builder.getHolograms()) {
+            ArmorStand stand = (ArmorStand) world.getWorld().createEntity(this.getLocation(), ArmorStand.class);
+            stand.setVisible(false);
+            stand.setCustomName(hologram);
+            stand.setCustomNameVisible(true);
+            this.holograms.add(stand);
         }
         this.hideName = builder.isHideName();
 
@@ -119,6 +114,23 @@ public class NPC extends EntityPlayer {
                     5);
     }
 
+    public void setHologramContent(int index, String content) {
+        ArmorStand stand = this.holograms.get(index);
+        stand.setCustomName(content);
+    }
+
+    public void setHologramsContent(String... content) {
+        this.setHologramsContent(List.of(content));
+    }
+
+    public void setHologramsContent(List<String> content) {
+        Validate.isTrue(content.size() == this.holograms.size());
+        for (int i = 0; i < content.size(); i++) {
+            ArmorStand stand = this.holograms.get(i);
+            stand.setCustomName(content.get(i));
+        }
+    }
+
     private void behave() {
         Location location = this.getLocation();
         List<Player> nearby = new ArrayList<>(location.getNearbyPlayers(10));
@@ -145,10 +157,7 @@ public class NPC extends EntityPlayer {
     public void remove() {
         if (this.task != null)
             this.task.cancel();
-        if (this.titleStand != null)
-            this.titleStand.remove();
-        if (this.subTitleStand != null)
-            this.subTitleStand.remove();
+        this.removeStands();
         NPCPlugin.NPCS.remove(this);
         Bukkit.getOnlinePlayers().forEach(
                 p -> {
@@ -200,9 +209,9 @@ public class NPC extends EntityPlayer {
             while (response.toLowerCase().contains("{player}")) {
                 int i1 = response.indexOf("{");
                 int i2 = response.indexOf("}");
-                String bw = response.substring(i1+1, i2);
+                String bw = response.substring(i1 + 1, i2);
                 if (bw.equalsIgnoreCase("player"))
-                    response = response.substring(0, i1) + player.getName() + response.substring(i2+1);
+                    response = response.substring(0, i1) + player.getName() + response.substring(i2 + 1);
             }
             player.sendMessage("[" + this.getName() + "] " + response);
         }
@@ -216,13 +225,10 @@ public class NPC extends EntityPlayer {
         System.out.println("Saving npc " + this.getName() + "...");
         File npcFile = new File(NPCPlugin.getInstance().getDataFolder(), "npcs.yml");
         FileConfiguration config = YamlConfiguration.loadConfiguration(npcFile);
-        String title = this.titleStand != null ? this.titleStand.getCustomName() : this.getName();
-        String subTitle = this.subTitleStand != null ? this.subTitleStand.getCustomName() : null;
         String skinSignature = this.skin != null ? this.skin.getSignature() : null;
         String skinTexture = this.skin != null ? this.skin.getValue() : null;
         Location location = this.getLocation();
-        this.saveField(config, this.npcId + ".title", title);
-        this.saveField(config, this.npcId + ".subTitle", subTitle);
+        this.saveField(config, this.npcId + ".entityName", this.getName());
         this.saveField(config, this.npcId + ".motionLess", this.motionLess);
         this.saveField(config, this.npcId + ".hideName", this.hideName);
         this.saveField(config, this.npcId + ".hideTab", this.hideTab);
@@ -250,10 +256,8 @@ public class NPC extends EntityPlayer {
     }
 
     public void removeStands() {
-        if (titleStand != null)
-            titleStand.remove();
-        if (subTitleStand != null)
-            subTitleStand.remove();
+        for (ArmorStand stand : this.holograms)
+            stand.remove();
     }
 
     private void saveField(FileConfiguration config, String path, Object value) {

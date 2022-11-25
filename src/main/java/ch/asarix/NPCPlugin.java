@@ -51,8 +51,7 @@ public final class NPCPlugin extends JavaPlugin {
         }
         try {
             config.save(file);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
         for (NPC npc : NPCS) {

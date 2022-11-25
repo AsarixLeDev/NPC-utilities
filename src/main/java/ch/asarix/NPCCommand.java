@@ -33,7 +33,7 @@ public class NPCCommand implements CommandExecutor {
                         .setLocation(p)
                         .setPitch(30)
                         .setPlayerSkin("Technoblade")
-                        .setTitles("Technoblade", "" + ChatColor.YELLOW + ChatColor.BOLD + "CLICK")
+                        .addHologram("Technoblade", "" + ChatColor.YELLOW + ChatColor.BOLD + "CLICK")
                         .addDialogue("Technoblade (never) dies !")
                         .addDialogue("Sup, {player}. Your name is {player}, right ?")
                         .build();
@@ -44,7 +44,6 @@ public class NPCCommand implements CommandExecutor {
                         .setMotionLess(false)
                         .setLocation(p)
                         .setSkin(p)
-                        .setName("")
                         .build();
                 self.spawn();
                 break;
