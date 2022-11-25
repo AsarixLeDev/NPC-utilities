@@ -70,7 +70,10 @@ public class NPC extends EntityPlayer {
             task = Bukkit.getScheduler().runTaskTimer(NPCPlugin.getInstance(), this::behave, 0, 1);
         }
         this.holograms = Lists.newArrayList();
+        int i = 0;
         for (String hologram : builder.getHolograms()) {
+            Location location = this.getLocation();
+            location.setY(location.getY() - 0.5 + ++i*10);
             ArmorStand stand = (ArmorStand) world.getWorld().createEntity(this.getLocation(), ArmorStand.class);
             stand.setVisible(false);
             stand.setCustomName(hologram);
