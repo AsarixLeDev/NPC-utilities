@@ -7,6 +7,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import net.minecraft.server.v1_15_R1.EnumHand;
 import net.minecraft.server.v1_15_R1.PacketPlayInUseEntity;
+import net.minecraft.server.v1_15_R1.PacketPlayOutNamedEntitySpawn;
+import net.minecraft.server.v1_15_R1.PacketPlayOutPlayerInfo;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -60,35 +62,51 @@ public class NPCListener implements Listener {
                         entityId.setAccessible(true);
                         int id = entityId.getInt(packet2);
 //                        System.out.println(id);
-                        for (NPC npc : NPCPlugin.NPCS) {
-                            if (npc.getId() == id) {
-                                ItemStack holdItem = player.getInventory().getItemInMainHand();
-                                System.out.println("item");
-                                ItemMeta meta = holdItem.getItemMeta();
-                                if (meta != null) {
-                                    System.out.println("meta");
-                                    PersistentDataContainer container = meta.getPersistentDataContainer();
-                                    if (container.has(NPCPlugin.key, PersistentDataType.STRING)) {
-                                        System.out.println("key");
-                                        String data = container.get(NPCPlugin.key, PersistentDataType.STRING);
-                                        if (data != null) {
-                                            System.out.println("data");
-                                            if (data.equals("remover")) {
-                                                System.out.println("remover");
-                                                npc.remove();
-                                                super.channelRead(ctx, packet);
-                                                return;
-                                            }
-                                        }
+                        NPC npc = NPCPlugin.getNPC(id);
+                        if (npc == null) {
+                            super.channelRead(ctx, packet);
+                            return;
+                        }
+                        ItemStack holdItem = player.getInventory().getItemInMainHand();
+                        System.out.println("item");
+                        ItemMeta meta = holdItem.getItemMeta();
+                        if (meta != null) {
+                            System.out.println("meta");
+                            PersistentDataContainer container = meta.getPersistentDataContainer();
+                            if (container.has(NPCPlugin.key, PersistentDataType.STRING)) {
+                                System.out.println("key");
+                                String data = container.get(NPCPlugin.key, PersistentDataType.STRING);
+                                if (data != null) {
+                                    System.out.println("data");
+                                    if (data.equals("remover")) {
+                                        System.out.println("remover");
+                                        npc.remove();
+                                        super.channelRead(ctx, packet);
+                                        return;
                                     }
                                 }
-                                npc.onInteract(player);
-                                break;
                             }
                         }
+                        npc.onInteract(player);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+                }
+                else if (packet instanceof PacketPlayOutNamedEntitySpawn) {
+                    PacketPlayOutNamedEntitySpawn packet2 = (PacketPlayOutNamedEntitySpawn) packet;
+                    Field entityId = PacketPlayOutNamedEntitySpawn.class.getDeclaredField("a");
+                    entityId.setAccessible(true);
+                    int id = entityId.getInt(packet2);
+                    NPC npc = NPCPlugin.getNPC(id);
+                    if (npc == null) {
+                        super.channelRead(ctx, packet);
+                        return;
+                    }
+                    System.out.println("Spawned npc " + npc.getName() + " (" + npc.getNpcId() + ")");
+                }
+                else if (packet instanceof PacketPlayOutPlayerInfo) {
+                    PacketPlayOutPlayerInfo packet2 = (PacketPlayOutPlayerInfo) packet;
+                    System.out.println("PacketPlayOutPlayerInfo " + packet2);
                 }
                 super.channelRead(ctx, packet);
             }

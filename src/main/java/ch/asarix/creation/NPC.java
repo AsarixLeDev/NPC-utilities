@@ -15,6 +15,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.v1_15_R1.CraftServer;
 import org.bukkit.craftbukkit.v1_15_R1.CraftWorld;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Consumer;
@@ -22,10 +23,7 @@ import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 public class NPC extends EntityPlayer {
 
@@ -70,16 +68,17 @@ public class NPC extends EntityPlayer {
             task = Bukkit.getScheduler().runTaskTimer(NPCPlugin.getInstance(), this::behave, 0, 1);
         }
         this.holograms = Lists.newArrayList();
-        int i = 0;
-        for (String hologram : builder.getHolograms()) {
-            Location location = this.getLocation();
-            location.setY(location.getY() - 0.5 + ++i*10);
-            ArmorStand stand = (ArmorStand) world.getWorld().createEntity(this.getLocation(), ArmorStand.class);
+        List<String> holograms = new ArrayList<>(builder.getHolograms());
+        Collections.reverse(holograms);
+        for (String hologram : holograms) {
+            ArmorStand stand = (ArmorStand) world.getWorld().spawnEntity(this.getLocation(), EntityType.ARMOR_STAND);
             stand.setVisible(false);
+            stand.setGravity(false);
             stand.setCustomName(hologram);
             stand.setCustomNameVisible(true);
             this.holograms.add(stand);
         }
+        teleportStands();
         this.hideName = builder.isHideName();
 
         this.hideTab = builder.isHideTab();
@@ -91,19 +90,14 @@ public class NPC extends EntityPlayer {
     }
 
     public void spawn(Player player) {
+        if (this.hideTab) this.getBukkitEntity().getPlayer().setPlayerListName("");
         if (this.hideName) this.hideDisplayName();
         Util.sendPacket(player, new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, this));
         Util.sendPacket(player, new PacketPlayOutNamedEntitySpawn(this));
-        PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook packet =
-                new PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook(this.getId(), (short) 0, (short) 0, (short) 0,
-                        getConvertedRotation(lastYaw), getConvertedRotation(lastPitch), false);
-        PacketPlayOutEntityHeadRotation packet2 =
-                new PacketPlayOutEntityHeadRotation(this, getConvertedRotation(lastYaw));
-        Util.sendPacket(player, packet);
-        Util.sendPacket(player, packet2);
+        this.updateNPCPacket(this.lastX, this.lastY, this.lastZ, this.lastYaw, this.lastPitch);
 
 
-        if (this.hideTab)
+        if (this.hideTab) {
             Bukkit.getScheduler().runTaskLater(NPCPlugin.getInstance(),
                     () -> {
                         EntityPlayer entityPlayer = Util.getEntityPlayer(player);
@@ -115,6 +109,16 @@ public class NPC extends EntityPlayer {
                                 new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, this));
                     },
                     5);
+        }
+    }
+
+    private void teleportStands() {
+        int i = 0;
+        for (ArmorStand stand : this.holograms) {
+            Location location = this.getLocation().clone();
+            location.setY(location.getY() - 0.2 + (i++)*0.2);
+            stand.teleport(location);
+        }
     }
 
     public void setHologramContent(int index, String content) {
@@ -137,7 +141,10 @@ public class NPC extends EntityPlayer {
     private void behave() {
         Location location = this.getLocation();
         List<Player> nearby = new ArrayList<>(location.getNearbyPlayers(10));
-        if (nearby.isEmpty()) return;
+        if (nearby.isEmpty()) {
+            System.out.println("No nearby players");
+            return;
+        }
         Player nearbiest = nearby.get(0);
         if (nearby.size() > 1) {
             double smallestDist = location.distance(nearbiest.getLocation());
@@ -150,11 +157,16 @@ public class NPC extends EntityPlayer {
                 }
             }
         }
-        Location t = nearbiest.getLocation();
-        Vector vector = location.toVector().subtract(t.toVector()).multiply(-1);
+        Location goal = nearbiest.getLocation();
+        Vector vector = location.toVector().subtract(goal.toVector()).multiply(-1);
         location.setDirection(vector);
-        this.setYawPitch(location.getYaw(), location.getPitch());
-        updateNPCPacket(location.getYaw(), location.getPitch());
+//        this.setYawPitch(location.getYaw(), location.getPitch());
+        Location newLoc = goal.subtract(location).multiply(0.1);
+        double x = newLoc.getX()*128*32;
+        double z = newLoc.getZ()*32*128;
+        this.setLocation(lastX + newLoc.getX(), lastY, lastZ + newLoc.getZ(), location.getYaw(), location.getPitch());
+        updateNPCPacket(x, 0, z, location.getYaw(), location.getPitch());
+        teleportStands();
     }
 
     public void remove() {
@@ -170,10 +182,17 @@ public class NPC extends EntityPlayer {
         );
     }
 
-    private void updateNPCPacket(float yaw, float pitch) {
+    private void updateNPCPacket(double x, double y, double z, float yaw, float pitch) {
         PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook packet =
-                new PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook(this.getId(), (short) 0, (short) 0, (short) 0,
-                        getConvertedRotation(yaw), getConvertedRotation(pitch), false);
+                new PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook(
+                        this.getId(),
+                        (short) x,
+                        (short) y,
+                        (short) z,
+                        getConvertedRotation(yaw),
+                        getConvertedRotation(pitch),
+                        true
+                );
         PacketPlayOutEntityHeadRotation packet2 =
                 new PacketPlayOutEntityHeadRotation(this, getConvertedRotation(yaw));
         Util.broadcast(packet);

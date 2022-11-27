@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class NPCPlugin extends JavaPlugin {
 
@@ -55,9 +56,14 @@ public final class NPCPlugin extends JavaPlugin {
             e.printStackTrace();
         }
         for (NPC npc : NPCS) {
-            npc.save();
+//            npc.save();
             npc.removeStands();
         }
         // Plugin shutdown logic
+    }
+
+    public static NPC getNPC(int id) {
+        Optional<NPC> get = NPCS.stream().filter(npc -> npc.getId() == id).findFirst();
+        return get.orElse(null);
     }
 }

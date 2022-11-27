@@ -106,7 +106,7 @@ public class Util {
 
     public static void broadcast(Packet<?> packet) {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            Util.getEntityPlayer(player).playerConnection.sendPacket(packet);
+            sendPacket(player, packet);
         }
     }
 
